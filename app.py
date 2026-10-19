@@ -20,8 +20,8 @@ def preprocess_pdf_text(raw_text):
     text = re.sub(r'-\s*\d+\s*-', '', text)
     text = re.sub(r'Page\s*\d+(\s*of\s*\d+)?', '', text, flags=re.IGNORECASE)
     
-    # 문장 중간의 어색한 줄바꿈(\n) 잇기 (가장 핵심!)
-    text = re.sub(r'(?<![\.\?!\:\n])\n(?![\n\d\cdot①-⑩])', ' ', text)
+    # 문장 중간의 어색한 줄바꿈(\n) 잇기 (\cdot 이스케이프 수정 완료)
+    text = re.sub(r'(?<![\.\?!\:\n])\n(?![\n\d·①-⑩])', ' ', text)
     
     # 소방/기술 단위 및 원문자 기호의 구어체 한글화
     replacements = {
@@ -94,12 +94,10 @@ if uploaded_pdf is not None:
                 
             with st.spinner("🎧 신경망 음성 오디오북 생성 중... (분량에 따라 수초~수분이 걸릴 수 있습니다)"):
                 output_mp3 = "audiobook.mp3"
-                # Async 실행
                 asyncio.run(generate_tts(clean_text, voice_id, speed_choice, output_mp3))
                 
             st.success("🎉 오디오북 생성 완료!")
             
-            # 오디오 플레이어 & 다운로드 버튼
             with open(output_mp3, "rb") as f:
                 mp3_bytes = f.read()
                 
