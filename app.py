@@ -5,7 +5,7 @@ import edge_tts
 import pdfplumber
 import streamlit as st
 
-# 페이지 설정
+# 페이지 기본 설정
 st.set_page_config(
     page_title="🎧 소방 특화 PDF AI 오디오북 변환기",
     page_icon="📖",
@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 
-# 1. 소방/법령/기출 특화 대본 정제 알고리즘
+# 1. 소방/법령/기출 특화 대본 정제 알고리즘 (정규식 오류 완벽 수정)
 def preprocess_pdf_text(raw_text):
   text = raw_text
 
@@ -29,9 +29,9 @@ def preprocess_pdf_text(raw_text):
       r'\\(\s*\d+\s*-\s*\d+\s*\\)', '', text
   )  # ( 6-1 ), ( 6-2 ) 형태 시험지 번호
 
-  # ② 법령 공고문, 개정 이력, 부칙 행정 문구 제거
+  # ② 법령 공고문, 개정 이력, 부칙 행정 문구 제거 (이스케이프 정상화)
   text = re.sub(r'\\[시행\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\\]', '', text)
-  text = re.sub(r'\\[국립소방연구원공고\s*제\d{4}-\d+호[^\\]]*\]', '', text)
+  text = re.sub(r'\\[국립소방연구원공고[^\\]]*\]', '', text)
   text = re.sub(
       r'<\s*개정\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*>', '', text
   )
