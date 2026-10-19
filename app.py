@@ -7,29 +7,25 @@ import streamlit as st
 
 # 페이지 기본 설정
 st.set_page_config(
-    page_title="🎧 소방 특화 PDF AI 오디오북 변환기",
+    page_title="🎧 소방 특화 PDF/대본 AI 오디오북 변환기",
     page_icon="📖",
     layout="centered",
 )
 
 
-# 1. 소방/법령/기출 특화 대본 정제 알고리즘 (정규식 오류 완벽 수정)
+# 1. 소방/법령/기출 특화 대본 정제 알고리즘
 def preprocess_pdf_text(raw_text):
   text = raw_text
 
   # ① 시험지/법령 불필요 헤더, 푸터 및 쪽 번호 제거
   text = re.sub(r'한국산업인력공단|청렴\s*한\s*세상|안전\s*한\s*세상', '', text)
-  text = re.sub(
-      r'-\s*\d+\s*-', '', text
-  )  # - 1 - 형태의 페이지 번호
+  text = re.sub(r'-\s*\d+\s*-', '', text)
   text = re.sub(
       r'Page\s*\d+(\s*of\s*\d+)?', '', text, flags=re.IGNORECASE
   )
-  text = re.sub(
-      r'\\(\s*\d+\s*-\s*\d+\s*\\)', '', text
-  )  # ( 6-1 ), ( 6-2 ) 형태 시험지 번호
+  text = re.sub(r'\\(\s*\d+\s*-\s*\d+\s*\\)', '', text)
 
-  # ② 법령 공고문, 개정 이력, 부칙 행정 문구 제거 (이스케이프 정상화)
+  # ② 법령 공고문, 개정 이력, 부칙 행정 문구 제거
   text = re.sub(r'\\[시행\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\\]', '', text)
   text = re.sub(r'\\[국립소방연구원공고[^\\]]*\]', '', text)
   text = re.sub(
@@ -98,16 +94,52 @@ async def generate_tts(text, voice, rate_str, output_file='audiobook.mp3'):
 
 
 # --- Streamlit UI ---
-st.title('🎧 소방 특화 PDF AI 오디오북 변환기')
+st.title('🎧 소방 특화 AI 오디오북 변환기')
 st.caption(
-    '법령 공고문, 개정 이력, 단위(m³, kPa) 및 문장 줄바꿈을 깔끔하게 정제하여'
-    ' 성우처럼 자연스럽게 낭독합니다.'
+    'AI가 정제해준 대본을 붙여넣거나, 소방 PDF를 올리면 성우처럼 매끄러운'
+    ' MP3 오디오북을 만들어 드립니다.'
 )
 
-uploaded_pdf = st.file_uploader(
-    '📖 오디오북으로 제작할 PDF 파일을 올려주세요:', type=['pdf']
+# 탭을 통해 두 가지 입력 방식 제공
+tab_text, tab_pdf = st.tabs(
+    ['✍️ 대본 텍스트 붙여넣기 (추천)', '📄 PDF 파일 직접 업로드']
 )
 
+final_text = ''
+
+with tab_text:
+  pasted_text = st.text_area(
+      '📋 AI가 가공해준 낭독용 대본을 여기에 붙여넣으세요:',
+      height=280,
+      placeholder=(
+          '소화기구 및 자동소화장치의 화재안전기술기준 낭독을 시작합니다...\n\n제1장.'
+          ' 주요 용어의 정의...'
+      ),
+  )
+  if pasted_text.strip():
+    final_text = pasted_text.strip()
+
+with tab_pdf:
+  uploaded_pdf = st.file_uploader(
+      '📖 오디오북으로 만들 PDF 파일:', type=['pdf']
+  )
+  if uploaded_pdf is not None:
+    if st.button('🔍 PDF에서 대본 추출하기'):
+      with st.spinner('PDF 텍스트 추출 및 구어체 정제 중...'):
+        st.session_state['pdf_extracted_text'] = extract_clean_text_from_pdf(
+            uploaded_pdf
+        )
+        st.success('PDF 대본 추출 완료!')
+
+    if 'pdf_extracted_text' in st.session_state:
+      final_text = st.session_state['pdf_extracted_text']
+      with st.expander('🔍 추출된 대본 확인하기'):
+        st.write(
+            final_text[:1000] + ('...' if len(final_text) > 1000 else '')
+        )
+
+# 옵션 설정
+st.write('---')
 col1, col2 = st.columns(2)
 with col1:
   voice_choice = st.selectbox(
@@ -124,44 +156,31 @@ voice_id = (
     'ko-KR-SunHiNeural' if '여성' in voice_choice else 'ko-KR-InJoonNeural'
 )
 
-if uploaded_pdf is not None:
-  if st.button('🚀 고품질 오디오북 MP3 생성하기', type='primary'):
+# MP3 생성 버튼
+if st.button('🚀 고품질 오디오북 MP3 생성하기', type='primary'):
+  if not final_text:
+    st.warning(
+        '⚠️ 텍스트 입력창에 대본을 붙여넣거나 PDF 파일에서 대본을 추출해'
+        ' 주세요!'
+    )
+  else:
     with st.spinner(
-        '📖 PDF 텍스트 추출 및 대본 정제 진행 중 (법령/기초 단위 한글화)...'
+        '🎧 신경망 음성 오디오북 생성 중... (분량에 따라 수초~수분이 걸릴 수'
+        ' 있습니다)'
     ):
-      clean_text = extract_clean_text_from_pdf(uploaded_pdf)
+      output_mp3 = 'audiobook.mp3'
+      asyncio.run(generate_tts(final_text, voice_id, speed_choice, output_mp3))
 
-    if not clean_text:
-      st.error(
-          '⚠️ PDF에서 텍스트를 추출하지 못했습니다. (스캔된 이미지형'
-          ' PDF인지 확인해 주세요)'
-      )
-    else:
-      st.success(f'✅ 대본 정제 완료! (총 {len(clean_text):,} 글자)')
-      with st.expander('🔍 정제된 오디오북 대본 미리보기'):
-        st.write(
-            clean_text[:1200] + ('...' if len(clean_text) > 1200 else '')
-        )
+    st.success('🎉 고품질 오디오북 생성 완료!')
 
-      with st.spinner(
-          '🎧 신경망 음성 오디오북 생성 중... (분량에 따라 수초~수분이 걸릴 수'
-          ' 있습니다)'
-      ):
-        output_mp3 = 'audiobook.mp3'
-        asyncio.run(
-            generate_tts(clean_text, voice_id, speed_choice, output_mp3)
-        )
+    with open(output_mp3, 'rb') as f:
+      mp3_bytes = f.read()
 
-      st.success('🎉 고품질 오디오북 생성 완료!')
+    st.audio(mp3_bytes, format='audio/mp3')
 
-      with open(output_mp3, 'rb') as f:
-        mp3_bytes = f.read()
-
-      st.audio(mp3_bytes, format='audio/mp3')
-
-      st.download_button(
-          label='📥 MP3 오디오북 다운로드',
-          data=mp3_bytes,
-          file_name=f"{uploaded_pdf.name.replace('.pdf', '')}_소방오디오북.mp3",
-          mime='audio/mp3',
-      )
+    st.download_button(
+        label='📥 MP3 오디오북 다운로드',
+        data=mp3_bytes,
+        file_name='소방시설관리사_오디오북.mp3',
+        mime='audio/mp3',
+    )
