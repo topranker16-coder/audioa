@@ -12,11 +12,11 @@ st.set_page_config(
     layout="centered",
 )
 
-# 사용 가능한 목소리 후보 딕셔너리
+# 🎙️ 서버 응답이 안정적인 목소리 후보 딕셔너리
 FEMALE_VOICES = {
     "SunHi (차분하고 안정적인 여성 톤)": "ko-KR-SunHiNeural",
-    "JiMin (부드럽고 자연스러운 여성 톤)": "ko-KR-JiMinNeural",
-    "SeoHyeon (밝고 친근한 여성 톤)": "ko-KR-SeoHyeonNeural",
+    "Yuri (부드럽고 자연스러운 여성 톤)": "ko-KR-YuriNeural",
+    "NaEun (밝고 친근한 여성 톤)": "ko-KR-NaEunNeural",
 }
 
 MALE_VOICES = {
