@@ -12,10 +12,10 @@ st.set_page_config(
     layout="centered",
 )
 
-# 🎙️ 검증된 안정적인 목소리 후보 딕셔너리
+# 🎙️ 서버 응답이 확실하고 검증된 목소리 후보 딕셔너리
 FEMALE_VOICES = {
     "SunHi (안정적이고 또박또박한 톤)": "ko-KR-SunHiNeural",
-    "JiMin (부드럽고 자연스러운 톤)": "ko-KR-JiMinNeural",
+    "SeoHyeon (밝고 친근한 톤)": "ko-KR-SeoHyeonNeural",
 }
 
 MALE_VOICES = {
@@ -80,25 +80,31 @@ def extract_clean_text_from_pdf(uploaded_file):
     return preprocess_pdf_text(raw_full)
 
 
-# 2. 안전한 동기식 edge-tts 실행 함수 (재시도 로직 포함)
+# 2. 안전한 동기식 edge-tts 실행 함수 (재시도 및 백업 성우 자동 전환 로직 포함)
 def run_generate_tts(text, voice, rate_str, output_file):
     import asyncio
-    for attempt in range(3):
-        try:
-            communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+    voices_to_try = [voice]
+    # 만약 지정한 성우에서 NoAudioReceived 에러가 나면 SunHi로 안전하게 우회 시도
+    if voice != "ko-KR-SunHiNeural":
+        voices_to_try.append("ko-KR-SunHiNeural")
+
+    for v in voices_to_try:
+        for attempt in range(2):
             try:
-                asyncio.run(communicate.save(output_file))
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(communicate.save(output_file))
-                loop.close()
-            return
-        except Exception as e:
-            if attempt == 2:
-                raise e
-            import time
-            time.sleep(1)
+                communicate = edge_tts.Communicate(text, v, rate=rate_str)
+                try:
+                    asyncio.run(communicate.save(output_file))
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(communicate.save(output_file))
+                    loop.close()
+                return
+            except Exception as e:
+                if attempt == 1 and v == voices_to_try[-1]:
+                    raise e
+                import time
+                time.sleep(0.5)
 
 
 # --- Streamlit UI ---
@@ -209,7 +215,7 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                                 run_generate_tts(text_block, v_choice, speed_choice, tmp_path)
                             except Exception as e:
                                 success_gen = False
-                                st.error(f"음성 조각 생성 오류: {e}")
+                                st.error(f"음성 생성 오류: {e}")
                                 break
 
                         if success_gen and len(temp_files) > 0:
