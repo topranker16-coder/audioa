@@ -104,39 +104,156 @@ def run_generate_tts(text, voice, rate_str, output_file):
 
 # --- Streamlit UI ---
 st.title("소방 특화 AI 오디오북 변환기")
-st.write(
-    "AI가 정제해준 대본을 붙여넣거나, 소방 PDF를 올리면 성우처럼 매끄러운"
-    " MP3 오디오북을 만들어 드립니다."
-)
+st.write("AI가 정제해준 대본을 붙여넣거나, 소방 PDF를 올리면 성우처럼 매끄러운 MP3 오디오북을 만들어 드립니다.")
 
-tab_text, tab_pdf = st.tabs(["대본 텍스트 붙여넣기 (추천)", "PDF 파일 직접 업로드"])
+tab_text, tab_pdf = st.tabs(["대본 텍스트 붙여넣기", "PDF 파일 직접 업로드"])
 
 final_text = ""
 
 with tab_text:
     pasted_text = st.text_area(
-        "AI가 가공해준 낭독용 대본을 여기에 붙여넣으세요:",
+        "낭독용 대본을 여기에 붙여넣으세요:",
         height=280,
-        placeholder=(
-            "[여성] 소화기구 및 자동소화장치의 화재안전기술기준 낭독을 시작합니다...\n\n[남성]"
-            " 네, 제1장 주요 용어의 정의를 살펴보겠습니다."
-        ),
+        placeholder="[여성] 소화기구 및 자동소화장치의 화재안전기술기준 낭독을 시작합니다...\n\n[남성] 네, 주요 용어를 살펴보겠습니다."
     )
     if pasted_text.strip():
         final_text = pasted_text.strip()
 
 with tab_pdf:
-    uploaded_pdf = st.file_uploader(
-        "오디오북으로 만들 PDF 파일:", type=["pdf"]
-    )
+    uploaded_pdf = st.file_uploader("오디오북으로 만들 PDF 파일:", type=["pdf"])
     if uploaded_pdf is not None:
         if st.button("PDF에서 대본 추출하기"):
-            with st.spinner("PDF 텍스트 추출 및 구어체 정제 중..."):
-                st.session_state["pdf_extracted_text"] = (
-                    extract_clean_text_from_pdf(uploaded_pdf)
-                )
+            with st.spinner("PDF 텍스트 추출 중..."):
+                st.session_state["pdf_extracted_text"] = extract_clean_text_from_pdf(uploaded_pdf)
                 st.success("PDF 대본 추출 완료!")
 
         if "pdf_extracted_text" in st.session_state:
             final_text = st.session_state["pdf_extracted_text"]
-            with st.expander("추출된
+            with st.expander("추출된 대본 확인하기"):
+                st.write(final_text[:1000] + ("..." if len(final_text) > 1000 else ""))
+
+# --- 옵션 설정 영역 ---
+st.write("---")
+st.subheader("목소리 및 재생 설정")
+
+mode_choice = st.radio(
+    "재생 모드 선택:",
+    ["여성 단독 낭독", "남성 단독 낭독", "남녀 교대 대화 (팟캐스트)"],
+    horizontal=True,
+)
+
+selected_female_voice = "ko-KR-SunHiNeural"
+selected_male_voice = "ko-KR-InJoonNeural"
+
+if mode_choice == "여성 단독 낭독":
+    f_choice_name = st.selectbox("여성 목소리 선택", list(FEMALE_VOICES.keys()))
+    selected_female_voice = FEMALE_VOICES[f_choice_name]
+
+elif mode_choice == "남성 단독 낭독":
+    m_choice_name = st.selectbox("남성 목소리 선택", list(MALE_VOICES.keys()))
+    selected_male_voice = MALE_VOICES[m_choice_name]
+
+else:
+    st.markdown("남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.")
+    col_f, col_m = st.columns(2)
+
+    with col_f:
+        f_choice_name = st.selectbox("여성 성우", list(FEMALE_VOICES.keys()))
+        selected_female_voice = FEMALE_VOICES[f_choice_name]
+
+    with col_m:
+        m_choice_name = st.selectbox("남성 성우", list(MALE_VOICES.keys()))
+        selected_male_voice = MALE_VOICES[m_choice_name]
+
+speed_choice = st.select_slider(
+    "낭독 속도:",
+    options=["-10%", "-5%", "-3%", "+0%", "+5%"],
+    value="-3%",
+)
+
+# MP3 생성 버튼
+if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
+    if not final_text:
+        st.warning("텍스트를 입력하거나 PDF를 먼저 올려주세요!")
+    else:
+        with st.spinner("오디오북 생성 중..."):
+            output_mp3 = "audiobook.mp3"
+
+            try:
+                if mode_choice == "여성 단독 낭독":
+                    run_generate_tts(final_text, selected_female_voice, speed_choice, output_mp3)
+
+                elif mode_choice == "남성 단독 낭독":
+                    run_generate_tts(final_text, selected_male_voice, speed_choice, output_mp3)
+
+                else:
+                    pattern = re.compile(r"\[(남성\vert{}여성\vert{}남\vert{}여)\]\s*(.*?)(?=\[(?:남성\vert{}여성\vert{}남\vert{}여)\]|$)", re.DOTALL)
+                    matches = pattern.findall(final_text)
+
+                    if not matches:
+                        st.warning("화자 태그([남성], [여성])를 찾지 못해 여성 목소리로 전체를 생성합니다.")
+                        run_generate_tts(final_text, selected_female_voice, speed_choice, output_mp3)
+                    else:
+                        temp_files = []
+                        success_gen = True
+                        import tempfile
+
+                        for speaker, text_block in matches:
+                            text_block = text_block.strip()
+                            if not text_block:
+                                continue
+
+                            v_choice = selected_male_voice if speaker in ["남성", "남"] else selected_female_voice
+
+                            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
+                            os.close(tmp_fd)
+                            temp_files.append(tmp_path)
+
+                            try:
+                                run_generate_tts(text_block, v_choice, speed_choice, tmp_path)
+                            except Exception as e:
+                                success_gen = False
+                                st.error(f"음성 생성 오류: {e}")
+                                break
+
+                        if success_gen and len(temp_files) > 0:
+                            list_file_path = "filelist.txt"
+                            with open(list_file_path, "w", encoding="utf-8") as lf:
+                                for tp in temp_files:
+                                    escaped_path = tp.replace("\\", "/")
+                                    lf.write(f"file '{escaped_path}'\n")
+
+                            cmd = [
+                                "ffmpeg",
+                                "-y",
+                                "-f",
+                                "concat",
+                                "-safe",
+                                "0",
+                                "-i",
+                                list_file_path,
+                                "-c",
+                                "copy",
+                                output_mp3,
+                            ]
+                            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                            if os.path.exists(list_file_path):
+                                os.remove(list_file_path)
+
+                        for tp in temp_files:
+                            if os.path.exists(tp):
+                                try:
+                                    os.remove(tp)
+                                except:
+                                    pass
+
+                st.success("오디오북 생성 완료!")
+
+                with open(output_mp3, "rb") as f:
+                    mp3_bytes = f.read()
+
+                st.audio(mp3_bytes, format="audio/mp3")
+
+                st.download_button(
+                    label="MP3 오디오
