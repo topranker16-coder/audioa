@@ -84,7 +84,7 @@ def extract_clean_text_from_pdf(uploaded_file):
 
 # 2. Async edge-tts 음성 생성 함수 (재시도 로직 포함)
 async def generate_tts_async(text, voice, rate_str, output_file):
-  for attempt in range(3):  # 최대 3번 재시도
+  for attempt in range(3):
     try:
       communicate = edge_tts.Communicate(text, voice, rate=rate_str)
       await communicate.save(output_file)
@@ -160,7 +160,6 @@ mode_choice = st.radio(
 selected_female_voice = "ko-KR-SunHiNeural"
 selected_male_voice = "ko-KR-InJoonNeural"
 
-# 모드별 세부 성우 선택 및 미리듣기 (텍스트를 길게 수정하여 에러 방지)
 if mode_choice == "여성 단독 낭독":
   col_v, col_btn = st.columns([3, 1])
   with col_v:
@@ -243,32 +242,4 @@ else:
 
 # 낭독 속도 조절
 speed_choice = st.select_slider(
-    "⚡ 낭독 속도 (약간 천천히가 또박또박합니다):",
-    options=["-10%", "-5%", "-3%", "+0%", "+5%"],
-    value="-3%",
-)
-
-# MP3 생성 버튼
-if st.button("🚀 고품질 오디오북 MP3 생성하기", type="primary"):
-  if not final_text:
-    st.warning(
-        "⚠️ 텍스트 입력창에 대본을 붙여넣거나 PDF 파일에서 대본을 추출해 주세요!"
-    )
-  else:
-    with st.spinner("🎧 신경망 음성 오디오북 생성 중..."):
-      output_mp3 = "audiobook.mp3"
-
-      try:
-        if mode_choice == "여성 단독 낭독":
-          run_generate_tts(
-              final_text, selected_female_voice, speed_choice, output_mp3
-          )
-
-        elif mode_choice == "남성 단독 낭독":
-          run_generate_tts(
-              final_text, selected_male_voice, speed_choice, output_mp3
-          )
-
-        else:
-          pattern = re.compile(
-              r"\[(남성\vert{}여성\vert{}남\vert{}여)\]
+    "⚡ 낭독 속도 (약간 천천히가 또
