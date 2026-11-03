@@ -37,7 +37,7 @@ def preprocess_pdf_text(raw_text):
     text = re.sub(r"<\s*개정\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*>", "", text)
     text = re.sub(r"<\s*신설\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*>", "", text)
     text = re.sub(r"【\s*문제\s*(\d+)\s*】", r"문제 \1번.", text)
-    text = re.sub(r"\\((가|나|다|라|마|바|사|아)\\)", r"\1번, ", text)
+    text = re.sub(r"\\((가\vert{}나\vert{}다\vert{}라\vert{}마\vert{}바\vert{}사\vert{}아)\\)", r"\1번, ", text)
 
     replacements = {
         "m³": "세제곱미터",
@@ -81,17 +81,25 @@ def extract_clean_text_from_pdf(uploaded_file):
     return preprocess_pdf_text(raw_full)
 
 
-# 2. 안전한 동기식 edge-tts 실행 함수
+# 2. 안전한 동기식 edge-tts 실행 함수 (재시도 로직 포함)
 def run_generate_tts(text, voice, rate_str, output_file):
-    communicate = edge_tts.Communicate(text, voice, rate=rate_str)
     import asyncio
-    try:
-        asyncio.run(communicate.save(output_file))
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(communicate.save(output_file))
-        loop.close()
+    for attempt in range(3):
+        try:
+            communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+            try:
+                asyncio.run(communicate.save(output_file))
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(communicate.save(output_file))
+                loop.close()
+            return
+        except Exception as e:
+            if attempt == 2:
+                raise e
+            import time
+            time.sleep(1)
 
 
 # --- Streamlit UI ---
@@ -155,52 +163,14 @@ selected_female_voice = "ko-KR-SunHiNeural"
 selected_male_voice = "ko-KR-InJoonNeural"
 
 if mode_choice == "여성 단독 낭독":
-    col_v, col_btn = st.columns([3, 1])
-    with col_v:
-        f_choice_name = st.selectbox(
-            "여성 목소리 선택", list(FEMALE_VOICES.keys())
-        )
-        selected_female_voice = FEMALE_VOICES[f_choice_name]
-    with col_btn:
-        st.write("")
-        st.write("")
-        if st.button("미리듣기", key="preview_f_single"):
-            with st.spinner("재생 중..."):
-                sample_file = "sample_preview.mp3"
-                try:
-                    run_generate_tts(
-                        "안녕하세요. 소방 오디오북 목소리 미리듣기입니다.",
-                        selected_female_voice,
-                        "+0%",
-                        sample_file,
-                    )
-                    st.audio(sample_file, format="audio/mp3")
-                except Exception as e:
-                    st.error(f"미리듣기 생성 실패: {e}")
+    f_choice_name = st.selectbox(
+        "여성 목소리 선택", list(FEMALE_VOICES.keys())
+    )
+    selected_female_voice = FEMALE_VOICES[f_choice_name]
 
 elif mode_choice == "남성 단독 낭독":
-    col_v, col_btn = st.columns([3, 1])
-    with col_v:
-        m_choice_name = st.selectbox(
-            "남성 목소리 선택", list(MALE_VOICES.keys())
-        )
-        selected_male_voice = MALE_VOICES[m_choice_name]
-    with col_btn:
-        st.write("")
-        st.write("")
-        if st.button("미리듣기", key="preview_m_single"):
-            with st.spinner("재생 중..."):
-                sample_file = "sample_preview.mp3"
-                try:
-                    run_generate_tts(
-                        "안녕하세요. 소방 오디오북 목소리 미리듣기입니다.",
-                        selected_male_voice,
-                        "+0%",
-                        sample_file,
-                    )
-                    st.audio(sample_file, format="audio/mp3")
-                except Exception as e:
-                    st.error(f"미리듣기 생성 실패: {e}")
+    m_choice_name = st.selectbox("남성 목소리 선택", list(MALE_VOICES.keys()))
+    selected_male_voice = MALE_VOICES[m_choice_name]
 
 else:
     st.markdown("남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.")
@@ -211,36 +181,12 @@ else:
             "여성 성우 선택", list(FEMALE_VOICES.keys())
         )
         selected_female_voice = FEMALE_VOICES[f_choice_name]
-        if st.button("여성 미리듣기", key="preview_f_combo"):
-            sample_file = "sample_f.mp3"
-            try:
-                run_generate_tts(
-                    "안녕하세요. 여성 성우 미리듣기입니다.",
-                    selected_female_voice,
-                    "+0%",
-                    sample_file,
-                )
-                st.audio(sample_file, format="audio/mp3")
-            except Exception as e:
-                st.error(f"미리듣기 실패: {e}")
 
     with col_m:
         m_choice_name = st.selectbox(
             "남성 성우 선택", list(MALE_VOICES.keys())
         )
         selected_male_voice = MALE_VOICES[m_choice_name]
-        if st.button("남성 미리듣기", key="preview_m_combo"):
-            sample_file = "sample_m.mp3"
-            try:
-                run_generate_tts(
-                    "안녕하세요. 남성 성우 미리듣기입니다.",
-                    selected_male_voice,
-                    "+0%",
-                    sample_file,
-                )
-                st.audio(sample_file, format="audio/mp3")
-            except Exception as e:
-                st.error(f"미리듣기 실패: {e}")
 
 # 낭독 속도 조절
 speed_choice = st.select_slider(
@@ -278,7 +224,7 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
 
                 else:
                     pattern = re.compile(
-                        r"\[(남성|여성|남|여)\]\s*(.*?)(?=\[(?:남성|여성|남|여)\]|$)",
+                        r"\[(남성\vert{}여성\vert{}남\vert{}여)\]\s*(.*?)(?=\[(?:남성\vert{}여성\vert{}남\vert{}여)\]|$)",
                         re.DOTALL,
                     )
                     matches = pattern.findall(final_text)
@@ -328,52 +274,4 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                             with open(list_file_path, "w", encoding="utf-8") as lf:
                                 for tp in temp_files:
                                     escaped_path = tp.replace("\\", "/")
-                                    lf.write(f"file '{escaped_path}'\n")
-
-                            cmd = [
-                                "ffmpeg",
-                                "-y",
-                                "-f",
-                                "concat",
-                                "-safe",
-                                "0",
-                                "-i",
-                                list_file_path,
-                                "-c",
-                                "copy",
-                                output_mp3,
-                            ]
-                            subprocess.run(
-                                cmd,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                            )
-
-                            if os.path.exists(list_file_path):
-                                os.remove(list_file_path)
-
-                        for tp in temp_files:
-                            if os.path.exists(tp):
-                                try:
-                                    os.remove(tp)
-                                except:
-                                    pass
-
-                st.success("고품질 오디오북 생성 완료!")
-
-                with open(output_mp3, "rb") as f:
-                    mp3_bytes = f.read()
-
-                st.audio(mp3_bytes, format="audio/mp3")
-
-                st.download_button(
-                    label="📥 MP3 오디오북 다운로드",
-                    data=mp3_bytes,
-                    file_name="소방시설관리사_오디오북.mp3",
-                    mime="audio/mp3",
-                )
-            except Exception as e:
-                st.error(
-                    f"오디오 생성 중 오류가 발생했습니다. (서버 응답 지연 또는"
-                    f" 텍스트 누락 등): {e}"
-                )
+                                    lf
