@@ -8,12 +8,12 @@ import streamlit as st
 
 # 페이지 기본 설정
 st.set_page_config(
-    page_title="🎧 소방 특화 PDF/대본 AI 오디오북 변환기",
+    page_title="소방 특화 PDF 대본 AI 오디오북 변환기",
     page_icon="📖",
     layout="centered",
 )
 
-# 🎙️ 사용 가능한 목소리 후보 딕셔너리
+# 사용 가능한 목소리 후보 딕셔너리
 FEMALE_VOICES = {
     "SunHi (차분하고 안정적인 여성 톤)": "ko-KR-SunHiNeural",
     "JiMin (부드럽고 자연스러운 여성 톤)": "ko-KR-JiMinNeural",
@@ -100,21 +100,19 @@ def run_generate_tts(text, voice, rate_str, output_file):
 
 
 # --- Streamlit UI ---
-st.title("🎧 소방 특화 AI 오디오북 변환기")
-st.caption(
+st.title("소방 특화 AI 오디오북 변환기")
+st.write(
     "AI가 정제해준 대본을 붙여넣거나, 소방 PDF를 올리면 성우처럼 매끄러운"
     " MP3 오디오북을 만들어 드립니다."
 )
 
-tab_text, tab_pdf = st.tabs(
-    ["✍️ 대본 텍스트 붙여넣기 (추천)", "📄 PDF 파일 직접 업로드"]
-)
+tab_text, tab_pdf = st.tabs(["대본 텍스트 붙여넣기 (추천)", "PDF 파일 직접 업로드"])
 
 final_text = ""
 
 with tab_text:
   pasted_text = st.text_area(
-      "📋 AI가 가공해준 낭독용 대본을 여기에 붙여넣으세요:",
+      "AI가 가공해준 낭독용 대본을 여기에 붙여넣으세요:",
       height=280,
       placeholder=(
           "[여성] 소화기구 및 자동소화장치의 화재안전기술기준 낭독을 시작합니다...\n\n[남성]"
@@ -126,10 +124,10 @@ with tab_text:
 
 with tab_pdf:
   uploaded_pdf = st.file_uploader(
-      "📖 오디오북으로 만들 PDF 파일:", type=["pdf"]
+      "오디오북으로 만들 PDF 파일:", type=["pdf"]
   )
   if uploaded_pdf is not None:
-    if st.button("🔍 PDF에서 대본 추출하기"):
+    if st.button("PDF에서 대본 추출하기"):
       with st.spinner("PDF 텍스트 추출 및 구어체 정제 중..."):
         st.session_state["pdf_extracted_text"] = extract_clean_text_from_pdf(
             uploaded_pdf
@@ -138,21 +136,21 @@ with tab_pdf:
 
     if "pdf_extracted_text" in st.session_state:
       final_text = st.session_state["pdf_extracted_text"]
-      with st.expander("🔍 추출된 대본 확인하기"):
+      with st.expander("추출된 대본 확인하기"):
         st.write(
             final_text[:1000] + ("..." if len(final_text) > 1000 else "")
         )
 
 # --- 옵션 설정 영역 ---
 st.write("---")
-st.subheader("🎙️ 목소리 및 재생 설정")
+st.subheader("목소리 및 재생 설정")
 
 mode_choice = st.radio(
     "재생 모드 선택:",
     [
         "여성 단독 낭독",
         "남성 단독 낭독",
-        "👥 남녀 교대 대화 (팟캐스트 스타일 조합)",
+        "남녀 교대 대화 (팟캐스트 스타일 조합)",
     ],
     horizontal=True,
 )
@@ -168,7 +166,7 @@ if mode_choice == "여성 단독 낭독":
   with col_btn:
     st.write("")
     st.write("")
-    if st.button("🔊 미리듣기", key="preview_f_single"):
+    if st.button("미리듣기", key="preview_f_single"):
       with st.spinner("재생 중..."):
         sample_file = "sample_preview.mp3"
         try:
@@ -190,7 +188,7 @@ elif mode_choice == "남성 단독 낭독":
   with col_btn:
     st.write("")
     st.write("")
-    if st.button("🔊 미리듣기", key="preview_m_single"):
+    if st.button("미리듣기", key="preview_m_single"):
       with st.spinner("재생 중..."):
         sample_file = "sample_preview.mp3"
         try:
@@ -205,13 +203,13 @@ elif mode_choice == "남성 단독 낭독":
           st.error(f"미리듣기 생성 실패: {e}")
 
 else:
-  st.markdown("💡 **남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.**")
+  st.markdown("남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.")
   col_f, col_m = st.columns(2)
 
   with col_f:
-    f_choice_name = st.selectbox("👩 여성 성우 선택", list(FEMALE_VOICES.keys()))
+    f_choice_name = st.selectbox("여성 성우 선택", list(FEMALE_VOICES.keys()))
     selected_female_voice = FEMALE_VOICES[f_choice_name]
-    if st.button("🔊 여성 미리듣기", key="preview_f_combo"):
+    if st.button("여성 미리듣기", key="preview_f_combo"):
       sample_file = "sample_f.mp3"
       try:
         run_generate_tts(
@@ -225,9 +223,9 @@ else:
         st.error(f"미리듣기 실패: {e}")
 
   with col_m:
-    m_choice_name = st.selectbox("👨 남성 성우 선택", list(MALE_VOICES.keys()))
+    m_choice_name = st.selectbox("남성 성우 선택", list(MALE_VOICES.keys()))
     selected_male_voice = MALE_VOICES[m_choice_name]
-    if st.button("🔊 남성 미리듣기", key="preview_m_combo"):
+    if st.button("남성 미리듣기", key="preview_m_combo"):
       sample_file = "sample_m.mp3"
       try:
         run_generate_tts(
@@ -242,4 +240,30 @@ else:
 
 # 낭독 속도 조절
 speed_choice = st.select_slider(
-    "⚡ 낭독 속도 (약간 천천히가 또
+    "낭독 속도 (약간 천천히가 또박또박합니다):",
+    options=["-10%", "-5%", "-3%", "+0%", "+5%"],
+    value="-3%",
+)
+
+# MP3 생성 버튼
+if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
+  if not final_text:
+    st.warning("텍스트 입력창에 대본을 붙여넣거나 PDF 파일에서 대본을 추출해 주세요!")
+  else:
+    with st.spinner("신경망 음성 오디오북 생성 중..."):
+      output_mp3 = "audiobook.mp3"
+
+      try:
+        if mode_choice == "여성 단독 낭독":
+          run_generate_tts(
+              final_text, selected_female_voice, speed_choice, output_mp3
+          )
+
+        elif mode_choice == "남성 단독 낭독":
+          run_generate_tts(
+              final_text, selected_male_voice, speed_choice, output_mp3
+          )
+
+        else:
+          pattern = re.compile(
+              r"\[(남성\vert{}여성\vert{}남\vert{}여)\]\s*(.*?)(?
