@@ -82,10 +82,17 @@ def extract_clean_text_from_pdf(uploaded_file):
   return preprocess_pdf_text(raw_full)
 
 
-# 2. Async edge-tts 음성 생성 함수
+# 2. Async edge-tts 음성 생성 함수 (재시도 로직 포함)
 async def generate_tts_async(text, voice, rate_str, output_file):
-  communicate = edge_tts.Communicate(text, voice, rate=rate_str)
-  await communicate.save(output_file)
+  for attempt in range(3):  # 최대 3번 재시도
+    try:
+      communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+      await communicate.save(output_file)
+      return
+    except Exception as e:
+      if attempt == 2:
+        raise e
+      await asyncio.sleep(1)
 
 
 def run_generate_tts(text, voice, rate_str, output_file):
@@ -153,7 +160,7 @@ mode_choice = st.radio(
 selected_female_voice = "ko-KR-SunHiNeural"
 selected_male_voice = "ko-KR-InJoonNeural"
 
-# 모드별 세부 성우 선택 및 미리듣기 기능 (rate를 "+0%"로 수정)
+# 모드별 세부 성우 선택 및 미리듣기 (텍스트를 길게 수정하여 에러 방지)
 if mode_choice == "여성 단독 낭독":
   col_v, col_btn = st.columns([3, 1])
   with col_v:
@@ -165,13 +172,16 @@ if mode_choice == "여성 단독 낭독":
     if st.button("🔊 미리듣기", key="preview_f_single"):
       with st.spinner("재생 중..."):
         sample_file = "sample_preview.mp3"
-        run_generate_tts(
-            "안녕하세요. 반갑습니다.",
-            selected_female_voice,
-            "+0%",
-            sample_file,
-        )
-        st.audio(sample_file, format="audio/mp3")
+        try:
+          run_generate_tts(
+              "안녕하세요. 소방 오디오북 목소리 미리듣기입니다.",
+              selected_female_voice,
+              "+0%",
+              sample_file,
+          )
+          st.audio(sample_file, format="audio/mp3")
+        except Exception as e:
+          st.error(f"미리듣기 생성 실패: {e}")
 
 elif mode_choice == "남성 단독 낭독":
   col_v, col_btn = st.columns([3, 1])
@@ -184,10 +194,16 @@ elif mode_choice == "남성 단독 낭독":
     if st.button("🔊 미리듣기", key="preview_m_single"):
       with st.spinner("재생 중..."):
         sample_file = "sample_preview.mp3"
-        run_generate_tts(
-            "안녕하세요. 반갑습니다.", selected_male_voice, "+0%", sample_file
-        )
-        st.audio(sample_file, format="audio/mp3")
+        try:
+          run_generate_tts(
+              "안녕하세요. 소방 오디오북 목소리 미리듣기입니다.",
+              selected_male_voice,
+              "+0%",
+              sample_file,
+          )
+          st.audio(sample_file, format="audio/mp3")
+        except Exception as e:
+          st.error(f"미리듣기 생성 실패: {e}")
 
 else:
   st.markdown("💡 **남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.**")
@@ -198,18 +214,32 @@ else:
     selected_female_voice = FEMALE_VOICES[f_choice_name]
     if st.button("🔊 여성 미리듣기", key="preview_f_combo"):
       sample_file = "sample_f.mp3"
-      run_generate_tts(
-          "안녕하세요.", selected_female_voice, "+0%", sample_file
-      )
-      st.audio(sample_file, format="audio/mp3")
+      try:
+        run_generate_tts(
+            "안녕하세요. 여성 성우 미리듣기입니다.",
+            selected_female_voice,
+            "+0%",
+            sample_file,
+        )
+        st.audio(sample_file, format="audio/mp3")
+      except Exception as e:
+        st.error(f"미리듣기 실패: {e}")
 
   with col_m:
     m_choice_name = st.selectbox("👨 남성 성우 선택", list(MALE_VOICES.keys()))
     selected_male_voice = MALE_VOICES[m_choice_name]
     if st.button("🔊 남성 미리듣기", key="preview_m_combo"):
       sample_file = "sample_m.mp3"
-      run_generate_tts("안녕하세요.", selected_male_voice, "+0%", sample_file)
-      st.audio(sample_file, format="audio/mp3")
+      try:
+        run_generate_tts(
+            "안녕하세요. 남성 성우 미리듣기입니다.",
+            selected_male_voice,
+            "+0%",
+            sample_file,
+        )
+        st.audio(sample_file, format="audio/mp3")
+      except Exception as e:
+        st.error(f"미리듣기 실패: {e}")
 
 # 낭독 속도 조절
 speed_choice = st.select_slider(
@@ -228,46 +258,17 @@ if st.button("🚀 고품질 오디오북 MP3 생성하기", type="primary"):
     with st.spinner("🎧 신경망 음성 오디오북 생성 중..."):
       output_mp3 = "audiobook.mp3"
 
-      if mode_choice == "여성 단독 낭독":
-        run_generate_tts(
-            final_text, selected_female_voice, speed_choice, output_mp3
-        )
-
-      elif mode_choice == "남성 단독 낭독":
-        run_generate_tts(
-            final_text, selected_male_voice, speed_choice, output_mp3
-        )
-
-      else:
-        # 남녀 교대 모드 처리 ([남성], [여성] 태그 파싱)
-        pattern = re.compile(
-            r"\[(남성\vert{}여성\vert{}남\vert{}여)\]\s*(.*?)(?=\[(?:남성\vert{}여성\vert{}남\vert{}여)\]|$)",
-            re.DOTALL,
-        )
-        matches = pattern.findall(final_text)
-
-        if not matches:
-          st.warning(
-              "⚠️ [남성] 또는 [여성] 화자 태그를 찾지 못했습니다. 선택하신"
-              " 여성 성우 목소리로 전체를 생성합니다."
-          )
+      try:
+        if mode_choice == "여성 단독 낭독":
           run_generate_tts(
               final_text, selected_female_voice, speed_choice, output_mp3
           )
+
+        elif mode_choice == "남성 단독 낭독":
+          run_generate_tts(
+              final_text, selected_male_voice, speed_choice, output_mp3
+          )
+
         else:
-          temp_files = []
-          success_gen = True
-          import tempfile
-
-          for speaker, text_block in matches:
-            text_block = text_block.strip()
-            if not text_block:
-              continue
-
-            v_choice = (
-                selected_male_voice
-                if speaker in ["남성", "남"]
-                else selected_female_voice
-            )
-
-            tmp_fd, tmp_path = tempfile.mk
+          pattern = re.compile(
+              r"\[(남성\vert{}여성\vert{}남\vert{}여)\]
