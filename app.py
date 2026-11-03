@@ -12,10 +12,9 @@ st.set_page_config(
     layout="centered",
 )
 
-# 🎙️ 서버 응답이 확실하고 검증된 성우 딕셔너리
+# 🎙️ 서버 응답이 가장 확실하고 검증된 표준 목소리 딕셔너리
 FEMALE_VOICES = {
-    "SunHi (차분하고 안정적인 여성 톤)": "ko-KR-SunHiNeural",
-    "SeoHyeon (밝고 친근한 여성 톤)": "ko-KR-SeoHyeonNeural",
+    "SunHi (안정적이고 또박또박한 여성 톤)": "ko-KR-SunHiNeural",
 }
 
 MALE_VOICES = {
@@ -145,8 +144,8 @@ selected_female_voice = "ko-KR-SunHiNeural"
 selected_male_voice = "ko-KR-InJoonNeural"
 
 if mode_choice == "여성 단독 낭독":
-    f_choice_name = st.selectbox("여성 목소리 선택", list(FEMALE_VOICES.keys()))
-    selected_female_voice = FEMALE_VOICES[f_choice_name]
+    st.info("🎙️ 여성 성우: SunHi (안정적이고 또박또박한 톤)")
+    selected_female_voice = "ko-KR-SunHiNeural"
 
 elif mode_choice == "남성 단독 낭독":
     m_choice_name = st.selectbox("남성 목소리 선택", list(MALE_VOICES.keys()))
@@ -156,8 +155,8 @@ else:
     st.markdown("💡 **남녀 교대 모드**입니다. 대본 내에 `[여성]` 또는 `[남성]` 태그가 포함되어 있어야 각각의 목소리로 교대 낭독됩니다.")
     col_f, col_m = st.columns(2)
     with col_f:
-        f_choice_name = st.selectbox("여성 성우", list(FEMALE_VOICES.keys()))
-        selected_female_voice = FEMALE_VOICES[f_choice_name]
+        st.write("👩 여성: SunHi")
+        selected_female_voice = "ko-KR-SunHiNeural"
     with col_m:
         m_choice_name = st.selectbox("남성 성우", list(MALE_VOICES.keys()))
         selected_male_voice = MALE_VOICES[m_choice_name]
@@ -209,7 +208,7 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                                 run_generate_tts(text_block, v_choice, speed_choice, tmp_path)
                             except Exception as e:
                                 success_gen = False
-                                st.error(f"음성 생성 오류: {e}")
+                                st.error(f"음성 조각 생성 오류: {e}")
                                 break
 
                         if success_gen and len(temp_files) > 0:
