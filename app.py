@@ -12,16 +12,13 @@ st.set_page_config(
     layout="centered",
 )
 
-# 🎙️ 서버 응답이 안정적인 목소리 후보 딕셔너리
+# 🎙️ 서버 응답이 가장 확실하고 검증된 표준 목소리 딕셔너리
 FEMALE_VOICES = {
-    "SunHi (차분하고 안정적인 여성 톤)": "ko-KR-SunHiNeural",
-    "Yuri (부드럽고 자연스러운 여성 톤)": "ko-KR-YuriNeural",
-    "NaEun (밝고 친근한 여성 톤)": "ko-KR-NaEunNeural",
+    "SunHi (안정적이고 또박또박한 여성 톤)": "ko-KR-SunHiNeural",
 }
 
 MALE_VOICES = {
     "InJoon (신뢰감 있고 묵직한 남성 톤)": "ko-KR-InJoonNeural",
-    "HyunSu (차분하고 깔끔한 남성 톤)": "ko-KR-HyunSuNeural",
 }
 
 
@@ -112,7 +109,7 @@ final_text = ""
 
 with tab_text:
     pasted_text = st.text_area(
-        "낭독용 대본을 여기에 붙여넣으세요:",
+        "낭독용 대본을 여기에 붙여넣으세요 (남녀 교대 시 [여성] / [남성] 태그 포함):",
         height=280,
         placeholder="[여성] 소화기구 및 자동소화장치의 화재안전기술기준 낭독을 시작합니다...\n\n[남성] 네, 주요 용어를 살펴보겠습니다."
     )
@@ -146,24 +143,22 @@ selected_female_voice = "ko-KR-SunHiNeural"
 selected_male_voice = "ko-KR-InJoonNeural"
 
 if mode_choice == "여성 단독 낭독":
-    f_choice_name = st.selectbox("여성 목소리 선택", list(FEMALE_VOICES.keys()))
-    selected_female_voice = FEMALE_VOICES[f_choice_name]
+    st.info("🎙️ 여성 성우: SunHi (안정적이고 또박또박한 톤)")
+    selected_female_voice = "ko-KR-SunHiNeural"
 
 elif mode_choice == "남성 단독 낭독":
-    m_choice_name = st.selectbox("남성 목소리 선택", list(MALE_VOICES.keys()))
-    selected_male_voice = MALE_VOICES[m_choice_name]
+    st.info("🎙️ 남성 성우: InJoon (신뢰감 있고 묵직한 톤)")
+    selected_male_voice = "ko-KR-InJoonNeural"
 
 else:
-    st.markdown("남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.")
+    st.markdown("💡 **남녀 교대 모드**입니다. 대본 내에 `[여성]` 또는 `[남성]` 태그가 포함되어 있어야 각각의 목소리로 교대 낭독됩니다.")
     col_f, col_m = st.columns(2)
-
     with col_f:
-        f_choice_name = st.selectbox("여성 성우", list(FEMALE_VOICES.keys()))
-        selected_female_voice = FEMALE_VOICES[f_choice_name]
-
+        st.write("👩 여성: SunHi")
+        selected_female_voice = "ko-KR-SunHiNeural"
     with col_m:
-        m_choice_name = st.selectbox("남성 성우", list(MALE_VOICES.keys()))
-        selected_male_voice = MALE_VOICES[m_choice_name]
+        st.write("👨 남성: InJoon")
+        selected_male_voice = "ko-KR-InJoonNeural"
 
 speed_choice = st.select_slider(
     "낭독 속도:",
@@ -191,7 +186,7 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                     matches = pattern.findall(final_text)
 
                     if not matches:
-                        st.warning("화자 태그를 찾지 못해 여성 목소리로 전체를 생성합니다.")
+                        # 화자 태그가 없을 경우 오류 대신 전체 텍스트를 여성 목소리로 안전하게 생성
                         run_generate_tts(final_text, selected_female_voice, speed_choice, output_mp3)
                     else:
                         temp_files = []
@@ -213,7 +208,7 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                                 run_generate_tts(text_block, v_choice, speed_choice, tmp_path)
                             except Exception as e:
                                 success_gen = False
-                                st.error(f"음성 생성 오류: {e}")
+                                st.error(f"음성 조각 생성 오류: {e}")
                                 break
 
                         if success_gen and len(temp_files) > 0:
