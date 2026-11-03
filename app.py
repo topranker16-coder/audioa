@@ -12,10 +12,10 @@ st.set_page_config(
     layout="centered",
 )
 
-# 🎙️ 서버에서 확실하게 독립 출력되는 검증된 성우 딕셔너리
+# 🎙️ 서버 응답이 확실하고 검증된 성우 딕셔너리
 FEMALE_VOICES = {
     "SunHi (차분하고 안정적인 여성 톤)": "ko-KR-SunHiNeural",
-    "JiMin (부드럽고 자연스러운 여성 톤)": "ko-KR-JiMinNeural",
+    "SeoHyeon (밝고 친근한 여성 톤)": "ko-KR-SeoHyeonNeural",
 }
 
 MALE_VOICES = {
