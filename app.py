@@ -12,15 +12,15 @@ st.set_page_config(
     layout="centered",
 )
 
-# 🎙️ 서버 응답이 확실하고 검증된 목소리 후보 딕셔너리
+# 🎙️ 서버에서 확실하게 독립 출력되는 검증된 성우 딕셔너리
 FEMALE_VOICES = {
-    "SunHi (안정적이고 또박또박한 톤)": "ko-KR-SunHiNeural",
-    "SeoHyeon (밝고 친근한 톤)": "ko-KR-SeoHyeonNeural",
+    "SunHi (차분하고 안정적인 여성 톤)": "ko-KR-SunHiNeural",
+    "JiMin (부드럽고 자연스러운 여성 톤)": "ko-KR-JiMinNeural",
 }
 
 MALE_VOICES = {
-    "InJoon (신뢰감 있고 묵직한 톤)": "ko-KR-InJoonNeural",
-    "HyunSu (차분하고 깔끔한 톤)": "ko-KR-HyunSuNeural",
+    "InJoon (신뢰감 있고 묵직한 남성 톤)": "ko-KR-InJoonNeural",
+    "HyunSu (차분하고 깔끔한 남성 톤)": "ko-KR-HyunSuNeural",
 }
 
 
@@ -80,31 +80,25 @@ def extract_clean_text_from_pdf(uploaded_file):
     return preprocess_pdf_text(raw_full)
 
 
-# 2. 안전한 동기식 edge-tts 실행 함수 (재시도 및 백업 성우 자동 전환 로직 포함)
+# 2. 안전한 동기식 edge-tts 실행 함수 (재시도 로직 포함)
 def run_generate_tts(text, voice, rate_str, output_file):
     import asyncio
-    voices_to_try = [voice]
-    # 만약 지정한 성우에서 NoAudioReceived 에러가 나면 SunHi로 안전하게 우회 시도
-    if voice != "ko-KR-SunHiNeural":
-        voices_to_try.append("ko-KR-SunHiNeural")
-
-    for v in voices_to_try:
-        for attempt in range(2):
+    for attempt in range(3):
+        try:
+            communicate = edge_tts.Communicate(text, voice, rate=rate_str)
             try:
-                communicate = edge_tts.Communicate(text, v, rate=rate_str)
-                try:
-                    asyncio.run(communicate.save(output_file))
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    loop.run_until_complete(communicate.save(output_file))
-                    loop.close()
-                return
-            except Exception as e:
-                if attempt == 1 and v == voices_to_try[-1]:
-                    raise e
-                import time
-                time.sleep(0.5)
+                asyncio.run(communicate.save(output_file))
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(communicate.save(output_file))
+                loop.close()
+            return
+        except Exception as e:
+            if attempt == 2:
+                raise e
+            import time
+            time.sleep(0.5)
 
 
 # --- Streamlit UI ---
