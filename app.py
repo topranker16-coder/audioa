@@ -1,10 +1,10 @@
 import asyncio
 import os
 import re
+import subprocess
 import edge_tts
 import pdfplumber
 import streamlit as st
-from pydub import AudioSegment  # 오디오 조각 병합용
 
 # 페이지 기본 설정
 st.set_page_config(
@@ -82,7 +82,7 @@ def extract_clean_text_from_pdf(uploaded_file):
   return preprocess_pdf_text(raw_full)
 
 
-# 3. Async edge-tts 음성 생성 함수 (내부 호출용)
+# 3. Async edge-tts 음성 생성 함수
 async def generate_tts_async(text, voice, rate_str, output_file):
   communicate = edge_tts.Communicate(text, voice, rate=rate_str)
   await communicate.save(output_file)
@@ -99,7 +99,6 @@ st.caption(
     " MP3 오디오북을 만들어 드립니다."
 )
 
-# 탭을 통해 두 가지 입력 방식 제공
 tab_text, tab_pdf = st.tabs(
     ["✍️ 대본 텍스트 붙여넣기 (추천)", "📄 PDF 파일 직접 업로드"]
 )
@@ -158,7 +157,6 @@ with col2:
       value="-3%",
   )
 
-# 음성 ID 매핑
 female_voice = "ko-KR-SunHiNeural"
 male_voice = "ko-KR-InJoonNeural"
 
@@ -169,10 +167,7 @@ if st.button("🚀 고품질 오디오북 MP3 생성하기", type="primary"):
         "⚠️ 텍스트 입력창에 대본을 붙여넣거나 PDF 파일에서 대본을 추출해 주세요!"
     )
   else:
-    with st.spinner(
-        "🎧 신경망 음성 오디오북 생성 중폭풍... (분량에 따라 수초~수분이 걸릴 수"
-        " 있습니다)"
-    ):
+    with st.spinner("🎧 신경망 음성 오디오북 생성 중..."):
       output_mp3 = "audiobook.mp3"
 
       if mode_choice == "여성 단독 (SunHi)":
@@ -196,9 +191,9 @@ if st.button("🚀 고품질 오디오북 MP3 생성하기", type="primary"):
           )
           run_generate_tts(final_text, female_voice, speed_choice, output_mp3)
         else:
-          combined_audio = AudioSegment.empty()
           temp_files = []
           success_gen = True
+          import tempfile
 
           for speaker, text_block in matches:
             text_block = text_block.strip()
@@ -211,26 +206,47 @@ if st.button("🚀 고품질 오디오북 MP3 생성하기", type="primary"):
                 else female_voice
             )
 
-            # 임시 파일로 각 조각 생성
-            import tempfile
-
             tmp_fd, tmp_path = tempfile.mkstemp(suffix=".mp3")
             os.close(tmp_fd)
             temp_files.append(tmp_path)
 
             try:
               run_generate_tts(text_block, v_choice, speed_choice, tmp_path)
-              audio_segment = AudioSegment.from_file(tmp_path, format="mp3")
-              combined_audio += audio_segment
             except Exception as e:
               success_gen = False
               st.error(f"음성 조각 생성 중 오류 발생: {e}")
               break
 
           if success_gen and len(temp_files) > 0:
-            combined_audio.export(output_mp3, format="mp3")
+            # FFmpeg concat 목록 파일 생성
+            list_file_path = "filelist.txt"
+            with open(list_file_path, "w", encoding="utf-8") as lf:
+              for tp in temp_files:
+                # 절대 경로 또는 상대 경로 지정 (윈도우/리눅스 호환)
+                escaped_path = tp.replace("\\", "/")
+                lf.write(f"file '{escaped_path}'\n")
 
-          # 임시 파일 정리
+            # FFmpeg 명령어로 오디오 파일 병합
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                list_file_path,
+                "-c",
+                "copy",
+                output_mp3,
+            ]
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # 리스트 파일 정리
+            if os.path.exists(list_file_path):
+              os.remove(list_file_path)
+
+          # 임시 조각 파일 정리
           for tp in temp_files:
             if os.path.exists(tp):
               try:
