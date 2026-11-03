@@ -81,10 +81,9 @@ def extract_clean_text_from_pdf(uploaded_file):
   return preprocess_pdf_text(raw_full)
 
 
-# 2. 안전한 동기식 edge-tts 실행 함수 (무한 로딩 원인인 asyncio 루프 충돌 방지)
+# 2. 안전한 동기식 edge-tts 실행 함수
 def run_generate_tts(text, voice, rate_str, output_file):
   communicate = edge_tts.Communicate(text, voice, rate=rate_str)
-  # asyncio.run 대신 내부적으로 새로운 루프를 안전하게 생성하여 저장
   import asyncio
 
   try:
@@ -200,26 +199,3 @@ elif mode_choice == "남성 단독 낭독":
           st.error(f"미리듣기 생성 실패: {e}")
 
 else:
-  st.markdown("남녀 교대에 사용할 성우 조합을 각각 선택해 주세요.")
-  col_f, col_m = st.columns(2)
-
-  with col_f:
-    f_choice_name = st.selectbox("여성 성우 선택", list(FEMALE_VOICES.keys()))
-    selected_female_voice = FEMALE_VOICES[f_choice_name]
-    if st.button("여성 미리듣기", key="preview_f_combo"):
-      sample_file = "sample_f.mp3"
-      try:
-        run_generate_tts(
-            "안녕하세요. 여성 성우 미리듣기입니다.",
-            selected_female_voice,
-            "+0%",
-            sample_file,
-        )
-        st.audio(sample_file, format="audio/mp3")
-      except Exception as e:
-        st.error(f"미리듣기 실패: {e}")
-
-  with col_m:
-    m_choice_name = st.selectbox("남성 성우 선택", list(MALE_VOICES.keys()))
-    selected_male_voice = MALE_VOICES[m_choice_name]
-    if st.button("남성 미리듣기", key
