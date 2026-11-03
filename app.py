@@ -37,7 +37,7 @@ def preprocess_pdf_text(raw_text):
     text = re.sub(r"<\s*개정\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*>", "", text)
     text = re.sub(r"<\s*신설\s*\d{4}\.\s*\d{1,2}\.\s*\d{1,2}\.\s*>", "", text)
     text = re.sub(r"【\s*문제\s*(\d+)\s*】", r"문제 \1번.", text)
-    text = re.sub(r"\\((가\vert{}나\vert{}다\vert{}라\vert{}마\vert{}바\vert{}사\vert{}아)\\)", r"\1번, ", text)
+    text = re.sub(r"\\((가|나|다|라|마|바|사|아)\\)", r"\1번, ", text)
 
     replacements = {
         "m³": "세제곱미터",
@@ -138,7 +138,7 @@ st.subheader("목소리 및 재생 설정")
 
 mode_choice = st.radio(
     "재생 모드 선택:",
-    ["여성 단독 낭독", "남성 단독 낭독", "남녀 교대 대화 (팟캐스트)"],
+    ["여성 단독 낭독", "남성 단독 낭독", "남녀 교대 대화"],
     horizontal=True,
 )
 
@@ -187,11 +187,11 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                     run_generate_tts(final_text, selected_male_voice, speed_choice, output_mp3)
 
                 else:
-                    pattern = re.compile(r"\[(남성\vert{}여성\vert{}남\vert{}여)\]\s*(.*?)(?=\[(?:남성\vert{}여성\vert{}남\vert{}여)\]|$)", re.DOTALL)
+                    pattern = re.compile(r"\[(남성|여성|남|여)\]\s*(.*?)(?=\[(?:남성|여성|남|여)\]|$)", re.DOTALL)
                     matches = pattern.findall(final_text)
 
                     if not matches:
-                        st.warning("화자 태그([남성], [여성])를 찾지 못해 여성 목소리로 전체를 생성합니다.")
+                        st.warning("화자 태그를 찾지 못해 여성 목소리로 전체를 생성합니다.")
                         run_generate_tts(final_text, selected_female_voice, speed_choice, output_mp3)
                     else:
                         temp_files = []
@@ -256,4 +256,10 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                 st.audio(mp3_bytes, format="audio/mp3")
 
                 st.download_button(
-                    label="MP3 오디오
+                    label="MP3 다운로드",
+                    data=mp3_bytes,
+                    file_name="audiobook.mp3",
+                    mime="audio/mp3",
+                )
+            except Exception as e:
+                st.error(f"오류 발생: {e}")
