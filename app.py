@@ -1,4 +1,3 @@
-import asyncio
 import os
 import re
 import subprocess
@@ -8,7 +7,7 @@ import streamlit as st
 
 # 페이지 기본 설정
 st.set_page_config(
-    page_title="소방 특화 PDF 대본 AI 오디오북 변환기",
+    page_title="소방 특화 AI 오디오북 변환기",
     page_icon="📖",
     layout="centered",
 )
@@ -82,21 +81,19 @@ def extract_clean_text_from_pdf(uploaded_file):
   return preprocess_pdf_text(raw_full)
 
 
-# 2. Async edge-tts 음성 생성 함수 (재시도 로직 포함)
-async def generate_tts_async(text, voice, rate_str, output_file):
-  for attempt in range(3):
-    try:
-      communicate = edge_tts.Communicate(text, voice, rate=rate_str)
-      await communicate.save(output_file)
-      return
-    except Exception as e:
-      if attempt == 2:
-        raise e
-      await asyncio.sleep(1)
-
-
+# 2. 안전한 동기식 edge-tts 실행 함수 (무한 로딩 원인인 asyncio 루프 충돌 방지)
 def run_generate_tts(text, voice, rate_str, output_file):
-  asyncio.run(generate_tts_async(text, voice, rate_str, output_file))
+  communicate = edge_tts.Communicate(text, voice, rate=rate_str)
+  # asyncio.run 대신 내부적으로 새로운 루프를 안전하게 생성하여 저장
+  import asyncio
+
+  try:
+    asyncio.run(communicate.save(output_file))
+  except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(communicate.save(output_file))
+    loop.close()
 
 
 # --- Streamlit UI ---
@@ -225,45 +222,4 @@ else:
   with col_m:
     m_choice_name = st.selectbox("남성 성우 선택", list(MALE_VOICES.keys()))
     selected_male_voice = MALE_VOICES[m_choice_name]
-    if st.button("남성 미리듣기", key="preview_m_combo"):
-      sample_file = "sample_m.mp3"
-      try:
-        run_generate_tts(
-            "안녕하세요. 남성 성우 미리듣기입니다.",
-            selected_male_voice,
-            "+0%",
-            sample_file,
-        )
-        st.audio(sample_file, format="audio/mp3")
-      except Exception as e:
-        st.error(f"미리듣기 실패: {e}")
-
-# 낭독 속도 조절
-speed_choice = st.select_slider(
-    "낭독 속도 (약간 천천히가 또박또박합니다):",
-    options=["-10%", "-5%", "-3%", "+0%", "+5%"],
-    value="-3%",
-)
-
-# MP3 생성 버튼
-if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
-  if not final_text:
-    st.warning("텍스트 입력창에 대본을 붙여넣거나 PDF 파일에서 대본을 추출해 주세요!")
-  else:
-    with st.spinner("신경망 음성 오디오북 생성 중..."):
-      output_mp3 = "audiobook.mp3"
-
-      try:
-        if mode_choice == "여성 단독 낭독":
-          run_generate_tts(
-              final_text, selected_female_voice, speed_choice, output_mp3
-          )
-
-        elif mode_choice == "남성 단독 낭독":
-          run_generate_tts(
-              final_text, selected_male_voice, speed_choice, output_mp3
-          )
-
-        else:
-          pattern = re.compile(
-              r"\[(남성\vert{}여성\vert{}남\vert{}여)\]\s*(.*?)(?
+    if st.button("남성 미리듣기", key
