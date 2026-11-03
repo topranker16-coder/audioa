@@ -12,13 +12,15 @@ st.set_page_config(
     layout="centered",
 )
 
-# 🎙️ 서버 응답이 가장 확실하고 검증된 표준 목소리 딕셔너리
+# 🎙️ 검증된 안정적인 목소리 후보 딕셔너리
 FEMALE_VOICES = {
-    "SunHi (안정적이고 또박또박한 여성 톤)": "ko-KR-SunHiNeural",
+    "SunHi (안정적이고 또박또박한 톤)": "ko-KR-SunHiNeural",
+    "JiMin (부드럽고 자연스러운 톤)": "ko-KR-JiMinNeural",
 }
 
 MALE_VOICES = {
-    "InJoon (신뢰감 있고 묵직한 남성 톤)": "ko-KR-InJoonNeural",
+    "InJoon (신뢰감 있고 묵직한 톤)": "ko-KR-InJoonNeural",
+    "HyunSu (차분하고 깔끔한 톤)": "ko-KR-HyunSuNeural",
 }
 
 
@@ -143,22 +145,22 @@ selected_female_voice = "ko-KR-SunHiNeural"
 selected_male_voice = "ko-KR-InJoonNeural"
 
 if mode_choice == "여성 단독 낭독":
-    st.info("🎙️ 여성 성우: SunHi (안정적이고 또박또박한 톤)")
-    selected_female_voice = "ko-KR-SunHiNeural"
+    f_choice_name = st.selectbox("여성 목소리 선택", list(FEMALE_VOICES.keys()))
+    selected_female_voice = FEMALE_VOICES[f_choice_name]
 
 elif mode_choice == "남성 단독 낭독":
-    st.info("🎙️ 남성 성우: InJoon (신뢰감 있고 묵직한 톤)")
-    selected_male_voice = "ko-KR-InJoonNeural"
+    m_choice_name = st.selectbox("남성 목소리 선택", list(MALE_VOICES.keys()))
+    selected_male_voice = MALE_VOICES[m_choice_name]
 
 else:
     st.markdown("💡 **남녀 교대 모드**입니다. 대본 내에 `[여성]` 또는 `[남성]` 태그가 포함되어 있어야 각각의 목소리로 교대 낭독됩니다.")
     col_f, col_m = st.columns(2)
     with col_f:
-        st.write("👩 여성: SunHi")
-        selected_female_voice = "ko-KR-SunHiNeural"
+        f_choice_name = st.selectbox("여성 성우", list(FEMALE_VOICES.keys()))
+        selected_female_voice = FEMALE_VOICES[f_choice_name]
     with col_m:
-        st.write("👨 남성: InJoon")
-        selected_male_voice = "ko-KR-InJoonNeural"
+        m_choice_name = st.selectbox("남성 성우", list(MALE_VOICES.keys()))
+        selected_male_voice = MALE_VOICES[m_choice_name]
 
 speed_choice = st.select_slider(
     "낭독 속도:",
@@ -186,7 +188,6 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                     matches = pattern.findall(final_text)
 
                     if not matches:
-                        # 화자 태그가 없을 경우 오류 대신 전체 텍스트를 여성 목소리로 안전하게 생성
                         run_generate_tts(final_text, selected_female_voice, speed_choice, output_mp3)
                     else:
                         temp_files = []
