@@ -274,4 +274,40 @@ if st.button("고품질 오디오북 MP3 생성하기", type="primary"):
                             with open(list_file_path, "w", encoding="utf-8") as lf:
                                 for tp in temp_files:
                                     escaped_path = tp.replace("\\", "/")
-                                    lf
+                                    lf.write(f"file '{escaped_path}'\n")
+
+                            cmd = [
+                                "ffmpeg",
+                                "-y",
+                                "-f",
+                                "concat",
+                                "-safe",
+                                "0",
+                                "-i",
+                                list_file_path,
+                                "-c",
+                                "copy",
+                                output_mp3,
+                            ]
+                            subprocess.run(
+                                cmd,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                            )
+
+                            if os.path.exists(list_file_path):
+                                os.remove(list_file_path)
+
+                        for tp in temp_files:
+                            if os.path.exists(tp):
+                                try:
+                                    os.remove(tp)
+                                except:
+                                    pass
+
+                st.success("고품질 오디오북 생성 완료!")
+
+                with open(output_mp3, "rb") as f:
+                    mp3_bytes = f.read()
+
+                st.audio(mp
